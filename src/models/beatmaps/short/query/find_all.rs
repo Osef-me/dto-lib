@@ -1,12 +1,12 @@
 use crate::filters::Filters;
-use crate::models::beatmaps::short::types::BeatmapsetShort;
+use crate::models::beatmaps::short::types::Beatmapset;
 use bigdecimal::ToPrimitive;
 use sqlx::PgPool;
 
 pub async fn find_all_with_filters(
     pool: &PgPool,
     filters: Filters,
-) -> Result<Vec<BeatmapsetShort>, sqlx::Error> {
+) -> Result<Vec<Beatmapset>, sqlx::Error> {
     let page = filters.page.unwrap_or(0);
     let per_page = filters.per_page.unwrap_or(20);
     let offset = page * per_page;
@@ -64,7 +64,7 @@ pub async fn find_all_with_filters(
     let rows = query.fetch_all(pool).await?;
 
     // Group by beatmapset
-    let mut beatmapsets: std::collections::HashMap<i32, BeatmapsetShort> =
+    let mut beatmapsets: std::collections::HashMap<i32, Beatmapset> =
         std::collections::HashMap::new();
 
     for row in rows {
@@ -72,14 +72,13 @@ pub async fn find_all_with_filters(
 
         let beatmapset = beatmapsets
             .entry(beatmapset_id)
-            .or_insert_with(|| BeatmapsetShort {
-                beatmapset: crate::models::beatmaps::short::types::Beatmapset {
-                    osu_id: row.beatmapset_osu_id,
-                    artist: row.artist,
-                    title: row.title,
-                    creator: row.creator,
-                    cover_url: row.cover_url,
-                },
+            .or_insert_with(|| Beatmapset {
+                osu_id: row.beatmapset_osu_id,
+                artist: row.artist,
+                title: row.title,
+                creator: row.creator,
+                cover_url: row.cover_url,
+                total_beatmaps: 0, // Sera mis à jour plus tard
                 beatmaps: Vec::new(),
             });
 
@@ -114,6 +113,11 @@ pub async fn find_all_with_filters(
                 rating: row.rating.to_f64().unwrap_or(0.0),
                 rating_type: row.rating_type,
             });
+    }
+
+    // Mettre à jour le total_beatmaps pour chaque beatmapset
+    for beatmapset in beatmapsets.values_mut() {
+        beatmapset.total_beatmaps = beatmapset.beatmaps.len() as i32;
     }
 
     Ok(beatmapsets.into_values().collect())

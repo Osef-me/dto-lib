@@ -4,6 +4,8 @@ pub struct Beatmapset {
     pub title: String,
     pub creator: String,
     pub cover_url: Option<String>,
+    pub total_beatmaps: i32,
+    pub beatmaps: Vec<Beatmap>,
 }
 
 pub struct Rating {
@@ -19,7 +21,3 @@ pub struct Beatmap {
     pub ratings: Vec<Rating>,
 }
 
-pub struct BeatmapsetShort {
-    pub beatmapset: Beatmapset,
-    pub beatmaps: Vec<Beatmap>,
-}
