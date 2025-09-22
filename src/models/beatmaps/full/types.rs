@@ -2,6 +2,7 @@ use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Beatmapset {
+    pub id: Option<i32>,
     pub osu_id: Option<i32>,
     pub artist: String,
     pub artist_unicode: Option<String>,
@@ -22,6 +23,7 @@ pub struct Beatmapset {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Beatmap {
+    pub id: Option<i32>,
     pub osu_id: Option<i32>,
     pub beatmapset_id: Option<i32>,
     pub difficulty: String,
@@ -41,6 +43,7 @@ pub struct Beatmap {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Rates {
+    pub id: Option<i32>,
     pub osu_hash: Option<String>,
     pub centirate: i32,
     pub drain_time: i32,
@@ -51,6 +54,7 @@ pub struct Rates {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Rating {
+    pub id: Option<i32>,
     pub rates_id: Option<i32>,
     pub rating: f64,
     pub rating_type: String,
@@ -59,6 +63,7 @@ pub struct Rating {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct ManiaRating {
+    pub id: Option<i32>,
     pub stream: f64,
     pub jumpstream: f64,
     pub handstream: f64,
