@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 bigdecimal = "0.4.8"
 # Utilise les dépendances du workspace
-db = { path = "../db" }
+db = { path = "../database-lib" }
 serde.workspace = true
+serde_json = { version = "1" }
 sqlx = { version = "0.8", features = ["runtime-tokio-rustls", "postgres", "chrono", "json", "bigdecimal", "macros", "uuid"] }
