@@ -80,4 +80,3 @@ pub enum ModeRating {
     Ctb,
     Taiko,
 }
-

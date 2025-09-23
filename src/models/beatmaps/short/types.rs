@@ -20,4 +20,3 @@ pub struct Beatmap {
     pub status: String,
     pub ratings: Vec<Rating>,
 }
-

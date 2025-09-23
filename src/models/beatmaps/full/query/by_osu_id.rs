@@ -1,4 +1,6 @@
-use crate::models::beatmaps::full::types::{Beatmap, Beatmapset, ManiaRating, ModeRating, Rates, Rating};
+use crate::models::beatmaps::full::types::{
+    Beatmap, Beatmapset, ManiaRating, ModeRating, Rates, Rating,
+};
 use bigdecimal::ToPrimitive;
 use db::models::beatmaps::beatmap::BeatmapRow;
 use db::models::beatmaps::beatmapset::BeatmapsetRow;
@@ -7,7 +9,10 @@ use db::models::rating::beatmap_mania_rating::BeatmapManiaRatingRow;
 use db::models::rating::beatmap_rating::BeatmapRatingRow;
 use sqlx::PgPool;
 
-pub async fn find_full_by_osu_id(pool: &PgPool, osu_id: i32) -> Result<Option<Beatmapset>, sqlx::Error> {
+pub async fn find_full_by_osu_id(
+    pool: &PgPool,
+    osu_id: i32,
+) -> Result<Option<Beatmapset>, sqlx::Error> {
     let Some(set_row) = BeatmapsetRow::find_by_osu_id(pool, osu_id).await? else {
         return Ok(None);
     };
@@ -35,9 +40,13 @@ pub async fn find_full_by_osu_id(pool: &PgPool, osu_id: i32) -> Result<Option<Be
         title_unicode: set_row.title_unicode,
         creator: set_row.creator,
         source: set_row.source,
-        tags: set_row
-            .tags
-            .and_then(|v| if v.is_empty() { None } else { Some(v.join(" ")) }),
+        tags: set_row.tags.and_then(|v| {
+            if v.is_empty() {
+                None
+            } else {
+                Some(v.join(" "))
+            }
+        }),
         has_video: set_row.has_video,
         has_storyboard: set_row.has_storyboard,
         is_explicit: set_row.is_explicit,
@@ -163,5 +172,3 @@ pub async fn find_full_by_osu_id(pool: &PgPool, osu_id: i32) -> Result<Option<Be
 
     Ok(Some(dto_set))
 }
-
-

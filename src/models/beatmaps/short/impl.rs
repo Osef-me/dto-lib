@@ -37,30 +37,34 @@ impl Beatmapset {
     ) -> Self {
         let total_beatmaps = beatmaps.len() as i32;
         let rating_type = rating_type.unwrap_or("osu");
-        
+
         // Créer tous les beatmaps d'abord
         let mut beatmaps_result = Vec::new();
         for beatmap_row in beatmaps {
             beatmaps_result.push(Beatmap::from_row(beatmap_row, ratings.clone()));
         }
-        
+
         // Trier par rating croissant
         beatmaps_result.sort_by(|a, b| {
-            let a_rating = a.ratings
+            let a_rating = a
+                .ratings
                 .iter()
                 .filter(|r| r.rating_type == rating_type)
                 .map(|r| r.rating)
                 .fold(f64::INFINITY, f64::min);
-            
-            let b_rating = b.ratings
+
+            let b_rating = b
+                .ratings
                 .iter()
                 .filter(|r| r.rating_type == rating_type)
                 .map(|r| r.rating)
                 .fold(f64::INFINITY, f64::min);
-            
-            a_rating.partial_cmp(&b_rating).unwrap_or(std::cmp::Ordering::Equal)
+
+            a_rating
+                .partial_cmp(&b_rating)
+                .unwrap_or(std::cmp::Ordering::Equal)
         });
-        
+
         // Prendre les 5 premiers (plus bas rating)
         if beatmaps_result.len() > 5 {
             beatmaps_result.truncate(5);
@@ -77,4 +81,3 @@ impl Beatmapset {
         }
     }
 }
-
