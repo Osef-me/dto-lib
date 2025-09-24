@@ -1,3 +1,8 @@
+use serde::Serialize;
+use utoipa::ToSchema;
+use serde_json::Value;
+
+#[derive(Serialize, Debug, Clone, ToSchema)]
 pub struct Beatmapset {
     pub osu_id: Option<i32>,
     pub artist: String,
@@ -8,15 +13,18 @@ pub struct Beatmapset {
     pub beatmaps: Vec<Beatmap>,
 }
 
+#[derive(Serialize, Debug, Clone, ToSchema)]
 pub struct Rating {
     pub rating: f64,
     pub rating_type: String,
 }
 
+#[derive(Serialize, Debug, Clone, ToSchema)]
 pub struct Beatmap {
     pub osu_id: Option<i32>,
     pub difficulty: String,
     pub mode: i32,
     pub status: String,
+    pub main_pattern: Value,
     pub ratings: Vec<Rating>,
 }

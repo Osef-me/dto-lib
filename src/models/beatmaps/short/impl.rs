@@ -20,6 +20,7 @@ impl Beatmap {
             difficulty: row.difficulty,
             mode: row.mode,
             status: row.status,
+            main_pattern: row.main_pattern,
             ratings: ratings
                 .into_iter()
                 .map(|row| Rating::from_row(row))
