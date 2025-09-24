@@ -101,6 +101,8 @@ pub async fn find_all_with_filters(
                 b.mode,
                 b.status,
                 b.main_pattern,
+                b.od,
+                r.drain_time,
                 br.id as rating_id,
                 br.rating,
                 br.rating_type,
@@ -141,6 +143,11 @@ pub async fn find_all_with_filters(
                     OR ($11 = 'technical' AND ($12::float8 IS NULL OR bmr.technical >= $12) AND ($13::float8 IS NULL OR bmr.technical <= $13))
                 )
             )
+            AND ($14::float8 IS NULL OR b.od >= $14)
+            AND ($15::float8 IS NULL OR b.od <= $15)
+            AND ($16::text IS NULL OR b.status = $16)
+            AND ($17::int4 IS NULL OR r.drain_time >= $17)
+            AND ($18::int4 IS NULL OR r.drain_time <= $18)
         ),
         page_sets AS (
             SELECT DISTINCT beatmapset_id
@@ -170,9 +177,14 @@ pub async fn find_all_with_filters(
     .bind(filters.beatmap.as_ref().and_then(|b| b.total_time_max))
     .bind(filters.beatmap.as_ref().and_then(|b| b.bpm_min))
     .bind(filters.beatmap.as_ref().and_then(|b| b.bpm_max))
-    .bind(filters.pattern.as_ref().and_then(|p| p.pattern_type.as_ref()))
-    .bind(filters.pattern.as_ref().and_then(|p| p.pattern_min))
-    .bind(filters.pattern.as_ref().and_then(|p| p.pattern_max))
+    .bind(filters.skillset.as_ref().and_then(|p| p.pattern_type.as_ref()))
+    .bind(filters.skillset.as_ref().and_then(|p| p.pattern_min))
+    .bind(filters.skillset.as_ref().and_then(|p| p.pattern_max))
+    .bind(filters.beatmap_technical.as_ref().and_then(|bt| bt.od_min))
+    .bind(filters.beatmap_technical.as_ref().and_then(|bt| bt.od_max))
+    .bind(filters.beatmap_technical.as_ref().and_then(|bt| bt.status.as_ref()))
+    .bind(filters.rates.as_ref().and_then(|r| r.drain_time_min))
+    .bind(filters.rates.as_ref().and_then(|r| r.drain_time_max))
     .fetch_all(pool)
     .await?;
 
@@ -270,6 +282,11 @@ pub async fn count_with_filters(
                 OR ($9 = 'technical' AND ($10::float8 IS NULL OR bmr.technical >= $10) AND ($11::float8 IS NULL OR bmr.technical <= $11))
             )
         )
+        AND ($12::float8 IS NULL OR b.od >= $12)
+        AND ($13::float8 IS NULL OR b.od <= $13)
+        AND ($14::text IS NULL OR b.status = $14)
+        AND ($15::int4 IS NULL OR r.drain_time >= $15)
+        AND ($16::int4 IS NULL OR r.drain_time <= $16)
         "#,
     )
     .bind(filters.rating.as_ref().and_then(|r| r.rating_type.as_ref()))
@@ -286,9 +303,14 @@ pub async fn count_with_filters(
     .bind(filters.beatmap.as_ref().and_then(|b| b.total_time_max))
     .bind(filters.beatmap.as_ref().and_then(|b| b.bpm_min))
     .bind(filters.beatmap.as_ref().and_then(|b| b.bpm_max))
-    .bind(filters.pattern.as_ref().and_then(|p| p.pattern_type.as_ref()))
-    .bind(filters.pattern.as_ref().and_then(|p| p.pattern_min))
-    .bind(filters.pattern.as_ref().and_then(|p| p.pattern_max))
+    .bind(filters.skillset.as_ref().and_then(|p| p.pattern_type.as_ref()))
+    .bind(filters.skillset.as_ref().and_then(|p| p.pattern_min))
+    .bind(filters.skillset.as_ref().and_then(|p| p.pattern_max))
+    .bind(filters.beatmap_technical.as_ref().and_then(|bt| bt.od_min))
+    .bind(filters.beatmap_technical.as_ref().and_then(|bt| bt.od_max))
+    .bind(filters.beatmap_technical.as_ref().and_then(|bt| bt.status.as_ref()))
+    .bind(filters.rates.as_ref().and_then(|r| r.drain_time_min))
+    .bind(filters.rates.as_ref().and_then(|r| r.drain_time_max))
     .fetch_one(pool)
     .await?;
 

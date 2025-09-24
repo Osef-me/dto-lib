@@ -9,7 +9,7 @@ pub struct RatingFilter {
 }
 
 #[derive(Deserialize, Debug, Clone, ToSchema)]
-pub struct PatternFilter {
+pub struct SkillsetFilter {
     pub pattern_type: Option<String>,
     pub pattern_min: Option<f64>,
     pub pattern_max: Option<f64>,
@@ -24,11 +24,29 @@ pub struct BeatmapFilter {
     pub bpm_max: Option<f64>,
 }
 
+#[derive(Deserialize, Debug, Clone, ToSchema)]
+pub struct BeatmapTechnicalFilter {
+    /// Overall Difficulty (OD) range
+    pub od_min: Option<f64>,
+    pub od_max: Option<f64>,
+    /// Beatmap status (pending, ranked, qualified, loved, graveyard)
+    pub status: Option<String>,
+}
+
+#[derive(Deserialize, Debug, Clone, ToSchema)]
+pub struct RatesFilter {
+    /// Drain time in seconds
+    pub drain_time_min: Option<i32>,
+    pub drain_time_max: Option<i32>,
+}
+
 #[derive(Deserialize, Debug, Clone, IntoParams)]
 pub struct Filters {
     pub rating: Option<RatingFilter>,
-    pub pattern: Option<PatternFilter>,
+    pub skillset: Option<SkillsetFilter>,
     pub beatmap: Option<BeatmapFilter>,
+    pub beatmap_technical: Option<BeatmapTechnicalFilter>,
+    pub rates: Option<RatesFilter>,
     pub page: Option<usize>,
     pub per_page: Option<usize>,
 }
