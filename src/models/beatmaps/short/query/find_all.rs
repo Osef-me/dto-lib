@@ -1,8 +1,9 @@
 use crate::filters::Filters;
 use crate::models::beatmaps::short::types::Beatmapset;
 use bigdecimal::{BigDecimal, ToPrimitive};
-use sqlx::{PgPool, Row};
+use sqlx::{PgPool, Row, Postgres, QueryBuilder};
 use std::collections::HashMap;
+use serde_json::json;
 
 /// Determine the preferred rating type from filters or fallback to "osu".
 fn preferred_rating_type(filters: &Filters) -> &str {
@@ -84,109 +85,191 @@ pub async fn find_all_with_filters(
     let per_page = filters.per_page.unwrap_or(9);
     let offset = page * per_page;
 
-    // Build the query with optional filters (runtime checked)
-    let rows = sqlx::query(
-        r#"
-        WITH base AS (
-            SELECT
-                bs.id as beatmapset_id,
-                bs.osu_id as beatmapset_osu_id,
-                bs.artist,
-                bs.title,
-                bs.creator,
-                bs.cover_url,
-                b.id as beatmap_id,
-                b.osu_id as beatmap_osu_id,
-                b.difficulty,
-                b.mode,
-                b.status,
-                b.main_pattern,
-                b.od,
-                r.drain_time,
-                br.id as rating_id,
-                br.rating,
-                br.rating_type,
-                bmr.stream as mania_stream,
-                bmr.jumpstream as mania_jumpstream,
-                bmr.handstream as mania_handstream,
-                bmr.stamina as mania_stamina,
-                bmr.jackspeed as mania_jackspeed,
-                bmr.chordjack as mania_chordjack,
-                bmr.technical as mania_technical
-            FROM beatmapset bs
-            INNER JOIN beatmap b ON bs.id = b.beatmapset_id
-            INNER JOIN rates r ON b.id = r.beatmap_id
-            INNER JOIN beatmap_rating br ON r.id = br.rates_id
-            LEFT JOIN beatmap_mania_rating bmr ON br.id = bmr.rating_id
-            WHERE r.centirate = 100
-            AND ($3::text IS NULL OR br.rating_type = $3)
-            AND ($4::float8 IS NULL OR br.rating >= $4)
-            AND ($5::float8 IS NULL OR br.rating <= $5)
-            AND ($6::text IS NULL OR (bs.artist ILIKE $6 OR bs.title ILIKE $6 OR bs.creator ILIKE $6))
-            AND ($7::int4 IS NULL OR r.total_time >= $7)
-            AND ($8::int4 IS NULL OR r.total_time <= $8)
-            AND ($9::float8 IS NULL OR r.bpm >= $9)
-            AND ($10::float8 IS NULL OR r.bpm <= $10)
-            AND ($11::text IS NULL OR EXISTS (
-                SELECT 1 FROM jsonb_array_elements_text(b.main_pattern) AS elem(value)
-                WHERE elem.value = $11
-            ))
-            AND (
-                $11::text IS NULL
-                OR (
-                    ($11 = 'jumpstream' AND ($12::float8 IS NULL OR bmr.jumpstream >= $12) AND ($13::float8 IS NULL OR bmr.jumpstream <= $13))
-                    OR ($11 = 'stream' AND ($12::float8 IS NULL OR bmr.stream >= $12) AND ($13::float8 IS NULL OR bmr.stream <= $13))
-                    OR ($11 = 'handstream' AND ($12::float8 IS NULL OR bmr.handstream >= $12) AND ($13::float8 IS NULL OR bmr.handstream <= $13))
-                    OR ($11 = 'stamina' AND ($12::float8 IS NULL OR bmr.stamina >= $12) AND ($13::float8 IS NULL OR bmr.stamina <= $13))
-                    OR ($11 = 'jackspeed' AND ($12::float8 IS NULL OR bmr.jackspeed >= $12) AND ($13::float8 IS NULL OR bmr.jackspeed <= $13))
-                    OR ($11 = 'chordjack' AND ($12::float8 IS NULL OR bmr.chordjack >= $12) AND ($13::float8 IS NULL OR bmr.chordjack <= $13))
-                    OR ($11 = 'technical' AND ($12::float8 IS NULL OR bmr.technical >= $12) AND ($13::float8 IS NULL OR bmr.technical <= $13))
-                )
-            )
-            AND ($14::float8 IS NULL OR b.od >= $14)
-            AND ($15::float8 IS NULL OR b.od <= $15)
-            AND ($16::text IS NULL OR b.status = $16)
-            AND ($17::int4 IS NULL OR r.drain_time >= $17)
-            AND ($18::int4 IS NULL OR r.drain_time <= $18)
-        ),
-        page_sets AS (
-            SELECT DISTINCT beatmapset_id
-            FROM base
-            ORDER BY beatmapset_id
-            LIMIT $1 OFFSET $2
-        )
-        SELECT base.*
-        FROM base
-        INNER JOIN page_sets ps ON base.beatmapset_id = ps.beatmapset_id
-        ORDER BY base.beatmapset_id, base.beatmap_id, base.rating_id
-        "#,
-    )
-    .bind(per_page as i64)
-    .bind(offset as i64)
-    .bind(filters.rating.as_ref().and_then(|r| r.rating_type.as_ref()))
-    .bind(filters.rating.as_ref().and_then(|r| r.rating_min))
-    .bind(filters.rating.as_ref().and_then(|r| r.rating_max))
-    .bind(
-        filters
-            .beatmap
-            .as_ref()
-            .and_then(|b| b.search_term.as_ref())
-            .map(|s| format!("%{}%", s)),
-    )
-    .bind(filters.beatmap.as_ref().and_then(|b| b.total_time_min))
-    .bind(filters.beatmap.as_ref().and_then(|b| b.total_time_max))
-    .bind(filters.beatmap.as_ref().and_then(|b| b.bpm_min))
-    .bind(filters.beatmap.as_ref().and_then(|b| b.bpm_max))
-    .bind(filters.skillset.as_ref().and_then(|p| p.pattern_type.as_ref()))
-    .bind(filters.skillset.as_ref().and_then(|p| p.pattern_min))
-    .bind(filters.skillset.as_ref().and_then(|p| p.pattern_max))
-    .bind(filters.beatmap_technical.as_ref().and_then(|bt| bt.od_min))
-    .bind(filters.beatmap_technical.as_ref().and_then(|bt| bt.od_max))
-    .bind(filters.beatmap_technical.as_ref().and_then(|bt| bt.status.as_ref()))
-    .bind(filters.rates.as_ref().and_then(|r| r.drain_time_min))
-    .bind(filters.rates.as_ref().and_then(|r| r.drain_time_max))
-    .fetch_all(pool)
-    .await?;
+    // Phase 1: fetch paginated beatmapset ids using DISTINCT over filtered base
+    let mut ids_builder: QueryBuilder<Postgres> = QueryBuilder::new(
+        "SELECT DISTINCT bs.id FROM beatmapset bs \n            INNER JOIN beatmap b ON bs.id = b.beatmapset_id\n            INNER JOIN rates r ON b.id = r.beatmap_id\n            INNER JOIN beatmap_rating br ON r.id = br.rates_id\n            LEFT JOIN beatmap_mania_rating bmr ON br.id = bmr.rating_id\n            WHERE r.centirate = 100",
+    );
+
+    // Dynamic filters
+    if let Some(rating) = filters.rating.as_ref() {
+        if let Some(rt) = rating.rating_type.as_ref() {
+            ids_builder.push(" AND br.rating_type = ").push_bind(rt);
+        }
+        if let Some(min) = rating.rating_min.as_ref() {
+            ids_builder.push(" AND br.rating >= ").push_bind(min);
+        }
+        if let Some(max) = rating.rating_max.as_ref() {
+            ids_builder.push(" AND br.rating <= ").push_bind(max);
+        }
+    }
+    if let Some(beatmap) = filters.beatmap.as_ref() {
+        if let Some(term) = beatmap.search_term.as_ref() {
+            let like = format!("%{}%", term);
+            ids_builder
+                .push(" AND (bs.artist ILIKE ")
+                .push_bind(like.clone())
+                .push(" OR bs.title ILIKE ")
+                .push_bind(like.clone())
+                .push(" OR bs.creator ILIKE ")
+                .push_bind(like)
+                .push(")");
+        }
+        if let Some(min) = beatmap.total_time_min.as_ref() {
+            ids_builder.push(" AND r.total_time >= ").push_bind(min);
+        }
+        if let Some(max) = beatmap.total_time_max.as_ref() {
+            ids_builder.push(" AND r.total_time <= ").push_bind(max);
+        }
+        if let Some(min) = beatmap.bpm_min.as_ref() {
+            ids_builder.push(" AND r.bpm >= ").push_bind(min);
+        }
+        if let Some(max) = beatmap.bpm_max.as_ref() {
+            ids_builder.push(" AND r.bpm <= ").push_bind(max);
+        }
+    }
+    if let Some(bt) = filters.beatmap_technical.as_ref() {
+        if let Some(min) = bt.od_min.as_ref() {
+            ids_builder.push(" AND b.od >= ").push_bind(min);
+        }
+        if let Some(max) = bt.od_max.as_ref() {
+            ids_builder.push(" AND b.od <= ").push_bind(max);
+        }
+        if let Some(status) = bt.status.as_ref() {
+            ids_builder.push(" AND b.status = ").push_bind(status);
+        }
+    }
+    if let Some(skill) = filters.skillset.as_ref() {
+        if let Some(pattern_type) = skill.pattern_type.as_ref() {
+            // JSONB array contains optimization: b.main_pattern @> '["pattern"]'
+            let arr = json!([pattern_type]);
+            ids_builder.push(" AND b.main_pattern @> ").push_bind(arr);
+            if let Some(min) = skill.pattern_min.as_ref() {
+                match pattern_type.as_str() {
+                    "jumpstream" => { ids_builder.push(" AND bmr.jumpstream >= ").push_bind(min); }
+                    "stream" => { ids_builder.push(" AND bmr.stream >= ").push_bind(min); }
+                    "handstream" => { ids_builder.push(" AND bmr.handstream >= ").push_bind(min); }
+                    "stamina" => { ids_builder.push(" AND bmr.stamina >= ").push_bind(min); }
+                    "jackspeed" => { ids_builder.push(" AND bmr.jackspeed >= ").push_bind(min); }
+                    "chordjack" => { ids_builder.push(" AND bmr.chordjack >= ").push_bind(min); }
+                    "technical" => { ids_builder.push(" AND bmr.technical >= ").push_bind(min); }
+                    _ => {}
+                }
+            }
+            if let Some(max) = skill.pattern_max.as_ref() {
+                match pattern_type.as_str() {
+                    "jumpstream" => { ids_builder.push(" AND bmr.jumpstream <= ").push_bind(max); }
+                    "stream" => { ids_builder.push(" AND bmr.stream <= ").push_bind(max); }
+                    "handstream" => { ids_builder.push(" AND bmr.handstream <= ").push_bind(max); }
+                    "stamina" => { ids_builder.push(" AND bmr.stamina <= ").push_bind(max); }
+                    "jackspeed" => { ids_builder.push(" AND bmr.jackspeed <= ").push_bind(max); }
+                    "chordjack" => { ids_builder.push(" AND bmr.chordjack <= ").push_bind(max); }
+                    "technical" => { ids_builder.push(" AND bmr.technical <= ").push_bind(max); }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    ids_builder.push(" ORDER BY bs.id LIMIT ").push_bind(per_page as i64).push(" OFFSET ").push_bind(offset as i64);
+
+    let beatmapset_ids: Vec<i32> = ids_builder
+        .build_query_scalar()
+        .fetch_all(pool)
+        .await?;
+
+    if beatmapset_ids.is_empty() {
+        return Ok(Vec::new());
+    }
+
+    // Phase 2: fetch detailed rows for selected beatmapset ids
+    let mut builder: QueryBuilder<Postgres> = QueryBuilder::new(
+        "SELECT\n            bs.id as beatmapset_id,\n            bs.osu_id as beatmapset_osu_id,\n            bs.artist,\n            bs.title,\n            bs.creator,\n            bs.cover_url,\n            b.id as beatmap_id,\n            b.osu_id as beatmap_osu_id,\n            b.difficulty,\n            b.mode,\n            b.status,\n            b.main_pattern,\n            b.od,\n            r.drain_time,\n            br.id as rating_id,\n            br.rating,\n            br.rating_type,\n            bmr.stream as mania_stream,\n            bmr.jumpstream as mania_jumpstream,\n            bmr.handstream as mania_handstream,\n            bmr.stamina as mania_stamina,\n            bmr.jackspeed as mania_jackspeed,\n            bmr.chordjack as mania_chordjack,\n            bmr.technical as mania_technical\n        FROM beatmapset bs\n        INNER JOIN beatmap b ON bs.id = b.beatmapset_id\n        INNER JOIN rates r ON b.id = r.beatmap_id\n        INNER JOIN beatmap_rating br ON r.id = br.rates_id\n        LEFT JOIN beatmap_mania_rating bmr ON br.id = bmr.rating_id\n        WHERE r.centirate = 100",
+    );
+
+    // Re-apply the same dynamic filters as above
+    if let Some(rating) = filters.rating.as_ref() {
+        if let Some(rt) = rating.rating_type.as_ref() {
+            builder.push(" AND br.rating_type = ").push_bind(rt);
+        }
+        if let Some(min) = rating.rating_min.as_ref() {
+            builder.push(" AND br.rating >= ").push_bind(min);
+        }
+        if let Some(max) = rating.rating_max.as_ref() {
+            builder.push(" AND br.rating <= ").push_bind(max);
+        }
+    }
+    if let Some(beatmap) = filters.beatmap.as_ref() {
+        if let Some(term) = beatmap.search_term.as_ref() {
+            let like = format!("%{}%", term);
+            builder
+                .push(" AND (bs.artist ILIKE ")
+                .push_bind(like.clone())
+                .push(" OR bs.title ILIKE ")
+                .push_bind(like.clone())
+                .push(" OR bs.creator ILIKE ")
+                .push_bind(like)
+                .push(")");
+        }
+        if let Some(min) = beatmap.total_time_min.as_ref() {
+            builder.push(" AND r.total_time >= ").push_bind(min);
+        }
+        if let Some(max) = beatmap.total_time_max.as_ref() {
+            builder.push(" AND r.total_time <= ").push_bind(max);
+        }
+        if let Some(min) = beatmap.bpm_min.as_ref() {
+            builder.push(" AND r.bpm >= ").push_bind(min);
+        }
+        if let Some(max) = beatmap.bpm_max.as_ref() {
+            builder.push(" AND r.bpm <= ").push_bind(max);
+        }
+    }
+    if let Some(bt) = filters.beatmap_technical.as_ref() {
+        if let Some(min) = bt.od_min.as_ref() {
+            builder.push(" AND b.od >= ").push_bind(min);
+        }
+        if let Some(max) = bt.od_max.as_ref() {
+            builder.push(" AND b.od <= ").push_bind(max);
+        }
+        if let Some(status) = bt.status.as_ref() {
+            builder.push(" AND b.status = ").push_bind(status);
+        }
+    }
+    if let Some(skill) = filters.skillset.as_ref() {
+        if let Some(pattern_type) = skill.pattern_type.as_ref() {
+            let arr = json!([pattern_type]);
+            builder.push(" AND b.main_pattern @> ").push_bind(arr);
+            if let Some(min) = skill.pattern_min.as_ref() {
+                match pattern_type.as_str() {
+                    "jumpstream" => { builder.push(" AND bmr.jumpstream >= ").push_bind(min); }
+                    "stream" => { builder.push(" AND bmr.stream >= ").push_bind(min); }
+                    "handstream" => { builder.push(" AND bmr.handstream >= ").push_bind(min); }
+                    "stamina" => { builder.push(" AND bmr.stamina >= ").push_bind(min); }
+                    "jackspeed" => { builder.push(" AND bmr.jackspeed >= ").push_bind(min); }
+                    "chordjack" => { builder.push(" AND bmr.chordjack >= ").push_bind(min); }
+                    "technical" => { builder.push(" AND bmr.technical >= ").push_bind(min); }
+                    _ => {}
+                }
+            }
+            if let Some(max) = skill.pattern_max.as_ref() {
+                match pattern_type.as_str() {
+                    "jumpstream" => { builder.push(" AND bmr.jumpstream <= ").push_bind(max); }
+                    "stream" => { builder.push(" AND bmr.stream <= ").push_bind(max); }
+                    "handstream" => { builder.push(" AND bmr.handstream <= ").push_bind(max); }
+                    "stamina" => { builder.push(" AND bmr.stamina <= ").push_bind(max); }
+                    "jackspeed" => { builder.push(" AND bmr.jackspeed <= ").push_bind(max); }
+                    "chordjack" => { builder.push(" AND bmr.chordjack <= ").push_bind(max); }
+                    "technical" => { builder.push(" AND bmr.technical <= ").push_bind(max); }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    // Constrain to selected beatmapsets
+    builder.push(" AND bs.id = ANY(").push_bind(&beatmapset_ids).push(")");
+    builder.push(" ORDER BY bs.id, b.id, br.id");
+
+    let rows = builder.build().fetch_all(pool).await?;
 
     // Group by beatmapset
     let mut beatmapsets: HashMap<i32, Beatmapset> = HashMap::new();
@@ -202,7 +285,7 @@ pub async fn find_all_with_filters(
                 title: row.try_get("title").unwrap_or_default(),
                 creator: row.try_get("creator").unwrap_or_default(),
                 cover_url: row.try_get("cover_url").ok(),
-                total_beatmaps: 0, // Sera mis à jour plus tard
+                total_beatmaps: 0,
                 beatmaps: Vec::new(),
             });
 
@@ -238,7 +321,7 @@ pub async fn find_all_with_filters(
             rating_type,
         });
     }
-    
+
     let preferred_type = preferred_rating_type(&filters);
     sort_and_limit_beatmaps(&mut beatmapsets, preferred_type);
 
@@ -249,70 +332,89 @@ pub async fn count_with_filters(
     pool: &PgPool,
     filters: &Filters,
 ) -> Result<i64, sqlx::Error> {
-    let row = sqlx::query(
-        r#"
-        SELECT COUNT(DISTINCT bs.id) AS total
-        FROM beatmapset bs
-        INNER JOIN beatmap b ON bs.id = b.beatmapset_id
-        INNER JOIN rates r ON b.id = r.beatmap_id
-        INNER JOIN beatmap_rating br ON r.id = br.rates_id
-        LEFT JOIN beatmap_mania_rating bmr ON br.id = bmr.rating_id
-        WHERE r.centirate = 100
-        AND ($1::text IS NULL OR br.rating_type = $1)
-        AND ($2::float8 IS NULL OR br.rating >= $2)
-        AND ($3::float8 IS NULL OR br.rating <= $3)
-        AND ($4::text IS NULL OR (bs.artist ILIKE $4 OR bs.title ILIKE $4 OR bs.creator ILIKE $4))
-        AND ($5::int4 IS NULL OR r.total_time >= $5)
-        AND ($6::int4 IS NULL OR r.total_time <= $6)
-        AND ($7::float8 IS NULL OR r.bpm >= $7)
-        AND ($8::float8 IS NULL OR r.bpm <= $8)
-        AND ($9::text IS NULL OR EXISTS (
-            SELECT 1 FROM jsonb_array_elements_text(b.main_pattern) AS elem(value)
-            WHERE elem.value = $9
-        ))
-        AND (
-            $9::text IS NULL
-            OR (
-                ($9 = 'jumpstream' AND ($10::float8 IS NULL OR bmr.jumpstream >= $10) AND ($11::float8 IS NULL OR bmr.jumpstream <= $11))
-                OR ($9 = 'stream' AND ($10::float8 IS NULL OR bmr.stream >= $10) AND ($11::float8 IS NULL OR bmr.stream <= $11))
-                OR ($9 = 'handstream' AND ($10::float8 IS NULL OR bmr.handstream >= $10) AND ($11::float8 IS NULL OR bmr.handstream <= $11))
-                OR ($9 = 'stamina' AND ($10::float8 IS NULL OR bmr.stamina >= $10) AND ($11::float8 IS NULL OR bmr.stamina <= $11))
-                OR ($9 = 'jackspeed' AND ($10::float8 IS NULL OR bmr.jackspeed >= $10) AND ($11::float8 IS NULL OR bmr.jackspeed <= $11))
-                OR ($9 = 'chordjack' AND ($10::float8 IS NULL OR bmr.chordjack >= $10) AND ($11::float8 IS NULL OR bmr.chordjack <= $11))
-                OR ($9 = 'technical' AND ($10::float8 IS NULL OR bmr.technical >= $10) AND ($11::float8 IS NULL OR bmr.technical <= $11))
-            )
-        )
-        AND ($12::float8 IS NULL OR b.od >= $12)
-        AND ($13::float8 IS NULL OR b.od <= $13)
-        AND ($14::text IS NULL OR b.status = $14)
-        AND ($15::int4 IS NULL OR r.drain_time >= $15)
-        AND ($16::int4 IS NULL OR r.drain_time <= $16)
-        "#,
-    )
-    .bind(filters.rating.as_ref().and_then(|r| r.rating_type.as_ref()))
-    .bind(filters.rating.as_ref().and_then(|r| r.rating_min))
-    .bind(filters.rating.as_ref().and_then(|r| r.rating_max))
-    .bind(
-        filters
-            .beatmap
-            .as_ref()
-            .and_then(|b| b.search_term.as_ref())
-            .map(|s| format!("%{}%", s)),
-    )
-    .bind(filters.beatmap.as_ref().and_then(|b| b.total_time_min))
-    .bind(filters.beatmap.as_ref().and_then(|b| b.total_time_max))
-    .bind(filters.beatmap.as_ref().and_then(|b| b.bpm_min))
-    .bind(filters.beatmap.as_ref().and_then(|b| b.bpm_max))
-    .bind(filters.skillset.as_ref().and_then(|p| p.pattern_type.as_ref()))
-    .bind(filters.skillset.as_ref().and_then(|p| p.pattern_min))
-    .bind(filters.skillset.as_ref().and_then(|p| p.pattern_max))
-    .bind(filters.beatmap_technical.as_ref().and_then(|bt| bt.od_min))
-    .bind(filters.beatmap_technical.as_ref().and_then(|bt| bt.od_max))
-    .bind(filters.beatmap_technical.as_ref().and_then(|bt| bt.status.as_ref()))
-    .bind(filters.rates.as_ref().and_then(|r| r.drain_time_min))
-    .bind(filters.rates.as_ref().and_then(|r| r.drain_time_max))
-    .fetch_one(pool)
-    .await?;
+    let mut builder: QueryBuilder<Postgres> = QueryBuilder::new(
+        "SELECT COUNT(DISTINCT bs.id) AS total\n        FROM beatmapset bs\n        INNER JOIN beatmap b ON bs.id = b.beatmapset_id\n        INNER JOIN rates r ON b.id = r.beatmap_id\n        INNER JOIN beatmap_rating br ON r.id = br.rates_id\n        LEFT JOIN beatmap_mania_rating bmr ON br.id = bmr.rating_id\n        WHERE r.centirate = 100",
+    );
+
+    if let Some(rating) = filters.rating.as_ref() {
+        if let Some(rt) = rating.rating_type.as_ref() {
+            builder.push(" AND br.rating_type = ").push_bind(rt);
+        }
+        if let Some(min) = rating.rating_min.as_ref() {
+            builder.push(" AND br.rating >= ").push_bind(min);
+        }
+        if let Some(max) = rating.rating_max.as_ref() {
+            builder.push(" AND br.rating <= ").push_bind(max);
+        }
+    }
+    if let Some(beatmap) = filters.beatmap.as_ref() {
+        if let Some(term) = beatmap.search_term.as_ref() {
+            let like = format!("%{}%", term);
+            builder
+                .push(" AND (bs.artist ILIKE ")
+                .push_bind(like.clone())
+                .push(" OR bs.title ILIKE ")
+                .push_bind(like.clone())
+                .push(" OR bs.creator ILIKE ")
+                .push_bind(like)
+                .push(")");
+        }
+        if let Some(min) = beatmap.total_time_min.as_ref() {
+            builder.push(" AND r.total_time >= ").push_bind(min);
+        }
+        if let Some(max) = beatmap.total_time_max.as_ref() {
+            builder.push(" AND r.total_time <= ").push_bind(max);
+        }
+        if let Some(min) = beatmap.bpm_min.as_ref() {
+            builder.push(" AND r.bpm >= ").push_bind(min);
+        }
+        if let Some(max) = beatmap.bpm_max.as_ref() {
+            builder.push(" AND r.bpm <= ").push_bind(max);
+        }
+    }
+    if let Some(bt) = filters.beatmap_technical.as_ref() {
+        if let Some(min) = bt.od_min.as_ref() {
+            builder.push(" AND b.od >= ").push_bind(min);
+        }
+        if let Some(max) = bt.od_max.as_ref() {
+            builder.push(" AND b.od <= ").push_bind(max);
+        }
+        if let Some(status) = bt.status.as_ref() {
+            builder.push(" AND b.status = ").push_bind(status);
+        }
+    }
+    if let Some(skill) = filters.skillset.as_ref() {
+        if let Some(pattern_type) = skill.pattern_type.as_ref() {
+            let arr = json!([pattern_type]);
+            builder.push(" AND b.main_pattern @> ").push_bind(arr);
+            if let Some(min) = skill.pattern_min.as_ref() {
+                match pattern_type.as_str() {
+                    "jumpstream" => { builder.push(" AND bmr.jumpstream >= ").push_bind(min); }
+                    "stream" => { builder.push(" AND bmr.stream >= ").push_bind(min); }
+                    "handstream" => { builder.push(" AND bmr.handstream >= ").push_bind(min); }
+                    "stamina" => { builder.push(" AND bmr.stamina >= ").push_bind(min); }
+                    "jackspeed" => { builder.push(" AND bmr.jackspeed >= ").push_bind(min); }
+                    "chordjack" => { builder.push(" AND bmr.chordjack >= ").push_bind(min); }
+                    "technical" => { builder.push(" AND bmr.technical >= ").push_bind(min); }
+                    _ => {}
+                }
+            }
+            if let Some(max) = skill.pattern_max.as_ref() {
+                match pattern_type.as_str() {
+                    "jumpstream" => { builder.push(" AND bmr.jumpstream <= ").push_bind(max); }
+                    "stream" => { builder.push(" AND bmr.stream <= ").push_bind(max); }
+                    "handstream" => { builder.push(" AND bmr.handstream <= ").push_bind(max); }
+                    "stamina" => { builder.push(" AND bmr.stamina <= ").push_bind(max); }
+                    "jackspeed" => { builder.push(" AND bmr.jackspeed <= ").push_bind(max); }
+                    "chordjack" => { builder.push(" AND bmr.chordjack <= ").push_bind(max); }
+                    "technical" => { builder.push(" AND bmr.technical <= ").push_bind(max); }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    let row = builder.build().fetch_one(pool).await?;
 
     let total: i64 = row.try_get("total")?;
     Ok(total)
