@@ -1,6 +1,7 @@
 use serde::Serialize;
+use utoipa::ToSchema;
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct Beatmapset {
     pub id: Option<i32>,
     pub osu_id: Option<i32>,
@@ -21,7 +22,7 @@ pub struct Beatmapset {
     pub beatmaps: Vec<Beatmap>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct Beatmap {
     pub id: Option<i32>,
     pub osu_id: Option<i32>,
@@ -41,7 +42,7 @@ pub struct Beatmap {
     pub rates: Vec<Rates>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct Rates {
     pub id: Option<i32>,
     pub osu_hash: Option<String>,
@@ -52,7 +53,7 @@ pub struct Rates {
     pub rating: Vec<Rating>,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct Rating {
     pub id: Option<i32>,
     pub rates_id: Option<i32>,
@@ -61,7 +62,7 @@ pub struct Rating {
     pub mode_rating: ModeRating,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct ManiaRating {
     pub id: Option<i32>,
     pub stream: f64,
@@ -73,7 +74,7 @@ pub struct ManiaRating {
     pub technical: f64,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, ToSchema)]
 pub enum ModeRating {
     Mania(ManiaRating),
     Std,
