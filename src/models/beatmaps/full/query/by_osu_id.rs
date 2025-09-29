@@ -1,6 +1,7 @@
 use crate::models::beatmaps::full::types::{
-    Beatmap, Beatmapset, ManiaRating, ModeRating, Rates, Rating,
+    Beatmap, Beatmapset,
 };
+use crate::models::rate::{ManiaRating, ModeRating, Rates, Rating};
 use bigdecimal::ToPrimitive;
 use sqlx::PgPool;
 use std::collections::HashMap;

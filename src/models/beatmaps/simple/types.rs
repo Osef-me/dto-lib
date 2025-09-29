@@ -19,14 +19,26 @@ pub struct Beatmapset {
     pub cover_url: Option<String>,
     pub preview_url: Option<String>,
     pub osu_file_url: Option<String>,
-    pub beatmaps: Vec<BeatmapRating>,
+    pub beatmaps: Vec<BeatmapInfo>,
 }
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
-pub struct BeatmapRating {
-    pub beatmap_id: i32,
-    pub rating_value: f64,
+pub struct BeatmapInfo {
+    pub beatmap_osu_id: i32,
     pub name: String,
+    pub count_circles: i32,
+    pub count_sliders: i32,
+    pub count_spinners: i32,
+    pub od: f64,
+    pub hp: f64,
+    pub main_pattern: serde_json::Value,
+    pub ratings: Vec<RatingInfo>,
+}
+
+#[derive(Debug, Clone, Serialize, ToSchema)]
+pub struct RatingInfo {
+    pub rating_type: String,
+    pub rating_value: f64,
 }
 
 
