@@ -1,6 +1,7 @@
 use serde::Serialize;
 use utoipa::ToSchema;
 use crate::models::rate;
+use chrono::NaiveDateTime;
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct Beatmapset {
@@ -21,6 +22,7 @@ pub struct Beatmapset {
     pub preview_url: Option<String>,
     pub osu_file_url: Option<String>,
     pub beatmaps: Vec<Beatmap>,
+    pub osu_status_changed_at: Option<NaiveDateTime>,
 }
 
 #[derive(Debug, Clone, Serialize, ToSchema)]

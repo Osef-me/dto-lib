@@ -31,7 +31,7 @@ pub async fn find_full_by_osu_id(
             bs.cover_url             AS bs_cover_url,
             bs.preview_url           AS bs_preview_url,
             bs.osu_file_url          AS bs_osu_file_url,
-
+            bs.osu_status_changed_at AS bs_osu_status_changed_at,
             -- beatmap
             b.id                     AS b_id,
             b.osu_id                 AS b_osu_id,
@@ -113,6 +113,7 @@ pub async fn find_full_by_osu_id(
         preview_url: first.bs_preview_url.clone(),
         osu_file_url: first.bs_osu_file_url.clone(),
         beatmaps: Vec::new(),
+        osu_status_changed_at: first.bs_osu_status_changed_at.clone(),
     };
 
     // Group by beatmap id, then attach a single rate (centirate=100) and its ratings
