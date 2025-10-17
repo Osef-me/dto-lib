@@ -1,7 +1,7 @@
-use serde::Serialize;
-use utoipa::ToSchema;
 use crate::models::rate;
 use chrono::NaiveDateTime;
+use serde::Serialize;
+use utoipa::ToSchema;
 
 #[derive(Debug, Clone, Serialize, ToSchema)]
 pub struct Beatmapset {

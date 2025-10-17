@@ -1,4 +1,4 @@
-use crate::models::rate::{Rates, ManiaRating, ModeRating, Rating};
+use crate::models::rate::{ManiaRating, ModeRating, Rates, Rating};
 use bigdecimal::ToPrimitive;
 use sqlx::PgPool;
 
@@ -60,12 +60,27 @@ pub async fn find_rate_by_beatmap_osu_id_and_centirate(
             let mode_rating = ModeRating::Mania(ManiaRating {
                 id: Some(row.bmr_id),
                 stream: row.bmr_stream.and_then(|v| v.to_f64()).unwrap_or_default(),
-                jumpstream: row.bmr_jumpstream.and_then(|v| v.to_f64()).unwrap_or_default(),
-                handstream: row.bmr_handstream.and_then(|v| v.to_f64()).unwrap_or_default(),
+                jumpstream: row
+                    .bmr_jumpstream
+                    .and_then(|v| v.to_f64())
+                    .unwrap_or_default(),
+                handstream: row
+                    .bmr_handstream
+                    .and_then(|v| v.to_f64())
+                    .unwrap_or_default(),
                 stamina: row.bmr_stamina.and_then(|v| v.to_f64()).unwrap_or_default(),
-                jackspeed: row.bmr_jackspeed.and_then(|v| v.to_f64()).unwrap_or_default(),
-                chordjack: row.bmr_chordjack.and_then(|v| v.to_f64()).unwrap_or_default(),
-                technical: row.bmr_technical.and_then(|v| v.to_f64()).unwrap_or_default(),
+                jackspeed: row
+                    .bmr_jackspeed
+                    .and_then(|v| v.to_f64())
+                    .unwrap_or_default(),
+                chordjack: row
+                    .bmr_chordjack
+                    .and_then(|v| v.to_f64())
+                    .unwrap_or_default(),
+                technical: row
+                    .bmr_technical
+                    .and_then(|v| v.to_f64())
+                    .unwrap_or_default(),
             });
             rate.rating.push(Rating {
                 id: Some(row.br_id),

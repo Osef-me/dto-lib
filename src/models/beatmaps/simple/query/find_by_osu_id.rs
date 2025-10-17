@@ -1,8 +1,8 @@
-use crate::models::beatmaps::simple::types::{Beatmapset, BeatmapInfo, RatingInfo};
-use sqlx::PgPool;
+use crate::models::beatmaps::simple::types::{BeatmapInfo, Beatmapset, RatingInfo};
 use bigdecimal::ToPrimitive;
-use std::collections::HashMap;
 use serde_json;
+use sqlx::PgPool;
+use std::collections::HashMap;
 
 pub async fn find_by_osu_id(
     pool: &PgPool,
@@ -72,17 +72,19 @@ pub async fn find_by_osu_id(
             continue;
         }
 
-        let beatmap_info = beatmaps_map.entry(beatmap_osu_id).or_insert_with(|| BeatmapInfo {
-            beatmap_osu_id: beatmap_osu_id.unwrap_or(0),
-            name: difficulty,
-            count_circles: row.b_count_circles,
-            count_sliders: row.b_count_sliders,
-            count_spinners: row.b_count_spinners,
-            od: row.b_od.to_f64().unwrap_or(0.0),
-            hp: row.b_hp.to_f64().unwrap_or(0.0),
-            main_pattern: row.b_main_pattern.clone(),
-            ratings: Vec::new(),
-        });
+        let beatmap_info = beatmaps_map
+            .entry(beatmap_osu_id)
+            .or_insert_with(|| BeatmapInfo {
+                beatmap_osu_id: beatmap_osu_id.unwrap_or(0),
+                name: difficulty,
+                count_circles: row.b_count_circles,
+                count_sliders: row.b_count_sliders,
+                count_spinners: row.b_count_spinners,
+                od: row.b_od.to_f64().unwrap_or(0.0),
+                hp: row.b_hp.to_f64().unwrap_or(0.0),
+                main_pattern: row.b_main_pattern.clone(),
+                ratings: Vec::new(),
+            });
 
         beatmap_info.ratings.push(RatingInfo {
             rating_type,
@@ -108,7 +110,7 @@ pub async fn find_by_osu_id(
         is_featured: first_row.bs_is_featured,
         cover_url: first_row.bs_cover_url.clone(),
         preview_url: first_row.bs_preview_url.clone(),
-        osu_file_url: first_row.bs_osu_file_url.clone() ,
+        osu_file_url: first_row.bs_osu_file_url.clone(),
         beatmaps,
     }))
 }

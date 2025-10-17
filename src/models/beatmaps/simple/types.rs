@@ -40,5 +40,3 @@ pub struct RatingInfo {
     pub rating_type: String,
     pub rating_value: f64,
 }
-
-

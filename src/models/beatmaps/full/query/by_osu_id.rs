@@ -1,6 +1,4 @@
-use crate::models::beatmaps::full::types::{
-    Beatmap, Beatmapset,
-};
+use crate::models::beatmaps::full::types::{Beatmap, Beatmapset};
 use crate::models::rate::{ManiaRating, ModeRating, Rates, Rating};
 use bigdecimal::ToPrimitive;
 use sqlx::PgPool;
@@ -103,7 +101,13 @@ pub async fn find_full_by_osu_id(
         tags: first
             .bs_tags
             .as_ref()
-            .map(|v| if v.is_empty() { None } else { Some(v.join(" ")) })
+            .map(|v| {
+                if v.is_empty() {
+                    None
+                } else {
+                    Some(v.join(" "))
+                }
+            })
             .flatten(),
         has_video: first.bs_has_video,
         has_storyboard: first.bs_has_storyboard,
@@ -172,12 +176,27 @@ pub async fn find_full_by_osu_id(
                     let mode_rating = ModeRating::Mania(ManiaRating {
                         id: Some(row.bmr_id),
                         stream: row.bmr_stream.and_then(|v| v.to_f64()).unwrap_or_default(),
-                        jumpstream: row.bmr_jumpstream.and_then(|v| v.to_f64()).unwrap_or_default(),
-                        handstream: row.bmr_handstream.and_then(|v| v.to_f64()).unwrap_or_default(),
+                        jumpstream: row
+                            .bmr_jumpstream
+                            .and_then(|v| v.to_f64())
+                            .unwrap_or_default(),
+                        handstream: row
+                            .bmr_handstream
+                            .and_then(|v| v.to_f64())
+                            .unwrap_or_default(),
                         stamina: row.bmr_stamina.and_then(|v| v.to_f64()).unwrap_or_default(),
-                        jackspeed: row.bmr_jackspeed.and_then(|v| v.to_f64()).unwrap_or_default(),
-                        chordjack: row.bmr_chordjack.and_then(|v| v.to_f64()).unwrap_or_default(),
-                        technical: row.bmr_technical.and_then(|v| v.to_f64()).unwrap_or_default(),
+                        jackspeed: row
+                            .bmr_jackspeed
+                            .and_then(|v| v.to_f64())
+                            .unwrap_or_default(),
+                        chordjack: row
+                            .bmr_chordjack
+                            .and_then(|v| v.to_f64())
+                            .unwrap_or_default(),
+                        technical: row
+                            .bmr_technical
+                            .and_then(|v| v.to_f64())
+                            .unwrap_or_default(),
                     });
 
                     entry.rating.push(Rating {
@@ -243,12 +262,27 @@ pub async fn find_ratings_by_osu_id_and_centirate(
         let mode_rating = ModeRating::Mania(ManiaRating {
             id: Some(row.bmr_id),
             stream: row.bmr_stream.and_then(|v| v.to_f64()).unwrap_or_default(),
-            jumpstream: row.bmr_jumpstream.and_then(|v| v.to_f64()).unwrap_or_default(),
-            handstream: row.bmr_handstream.and_then(|v| v.to_f64()).unwrap_or_default(),
+            jumpstream: row
+                .bmr_jumpstream
+                .and_then(|v| v.to_f64())
+                .unwrap_or_default(),
+            handstream: row
+                .bmr_handstream
+                .and_then(|v| v.to_f64())
+                .unwrap_or_default(),
             stamina: row.bmr_stamina.and_then(|v| v.to_f64()).unwrap_or_default(),
-            jackspeed: row.bmr_jackspeed.and_then(|v| v.to_f64()).unwrap_or_default(),
-            chordjack: row.bmr_chordjack.and_then(|v| v.to_f64()).unwrap_or_default(),
-            technical: row.bmr_technical.and_then(|v| v.to_f64()).unwrap_or_default(),
+            jackspeed: row
+                .bmr_jackspeed
+                .and_then(|v| v.to_f64())
+                .unwrap_or_default(),
+            chordjack: row
+                .bmr_chordjack
+                .and_then(|v| v.to_f64())
+                .unwrap_or_default(),
+            technical: row
+                .bmr_technical
+                .and_then(|v| v.to_f64())
+                .unwrap_or_default(),
         });
         ratings.push(Rating {
             id: Some(row.br_id),
@@ -320,12 +354,27 @@ pub async fn find_rate_by_osu_id_and_centirate(
             let mode_rating = ModeRating::Mania(ManiaRating {
                 id: Some(row.bmr_id),
                 stream: row.bmr_stream.and_then(|v| v.to_f64()).unwrap_or_default(),
-                jumpstream: row.bmr_jumpstream.and_then(|v| v.to_f64()).unwrap_or_default(),
-                handstream: row.bmr_handstream.and_then(|v| v.to_f64()).unwrap_or_default(),
+                jumpstream: row
+                    .bmr_jumpstream
+                    .and_then(|v| v.to_f64())
+                    .unwrap_or_default(),
+                handstream: row
+                    .bmr_handstream
+                    .and_then(|v| v.to_f64())
+                    .unwrap_or_default(),
                 stamina: row.bmr_stamina.and_then(|v| v.to_f64()).unwrap_or_default(),
-                jackspeed: row.bmr_jackspeed.and_then(|v| v.to_f64()).unwrap_or_default(),
-                chordjack: row.bmr_chordjack.and_then(|v| v.to_f64()).unwrap_or_default(),
-                technical: row.bmr_technical.and_then(|v| v.to_f64()).unwrap_or_default(),
+                jackspeed: row
+                    .bmr_jackspeed
+                    .and_then(|v| v.to_f64())
+                    .unwrap_or_default(),
+                chordjack: row
+                    .bmr_chordjack
+                    .and_then(|v| v.to_f64())
+                    .unwrap_or_default(),
+                technical: row
+                    .bmr_technical
+                    .and_then(|v| v.to_f64())
+                    .unwrap_or_default(),
             });
             rate.rating.push(Rating {
                 id: Some(row.br_id),

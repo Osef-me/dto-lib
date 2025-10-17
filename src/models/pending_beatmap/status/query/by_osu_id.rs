@@ -27,13 +27,9 @@ pub async fn find_status_by_osu_id(
         return Ok(None);
     };
 
-    let (total,): (i64,) = sqlx::query_as(
-        "SELECT COUNT(*)::bigint FROM pending_beatmap",
-    )
-    .fetch_one(pool)
-    .await?;
+    let (total,): (i64,) = sqlx::query_as("SELECT COUNT(*)::bigint FROM pending_beatmap")
+        .fetch_one(pool)
+        .await?;
 
     Ok(Some(PendingStatusDto { position, total }))
 }
-
-

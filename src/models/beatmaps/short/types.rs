@@ -1,6 +1,6 @@
 use serde::Serialize;
-use utoipa::ToSchema;
 use serde_json::Value;
+use utoipa::ToSchema;
 
 #[derive(Serialize, Debug, Clone, ToSchema)]
 pub struct Beatmapset {

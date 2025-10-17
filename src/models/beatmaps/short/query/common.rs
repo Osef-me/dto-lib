@@ -1,9 +1,9 @@
 use crate::filters::Filters;
 use crate::models::beatmaps::short::types::Beatmapset;
 use bigdecimal::{BigDecimal, ToPrimitive};
+use serde_json::json;
 use sqlx::{Postgres, QueryBuilder};
 use std::collections::HashMap;
-use serde_json::json;
 
 /// Determine the preferred rating type from filters or fallback to "osu".
 pub fn preferred_rating_type(filters: &Filters) -> &str {
@@ -36,10 +36,7 @@ pub fn beatmap_score(
 /// Sort beatmaps per set by ascending difficulty according to `preferred_type`,
 /// then keep the 5 easiest plus the single hardest (total up to 6). Also set
 /// `total_beatmaps` to the pre-truncation count for each set.
-pub fn sort_and_limit_beatmaps(
-    beatmapsets: &mut HashMap<i32, Beatmapset>,
-    preferred_type: &str,
-) {
+pub fn sort_and_limit_beatmaps(beatmapsets: &mut HashMap<i32, Beatmapset>, preferred_type: &str) {
     for beatmapset in beatmapsets.values_mut() {
         let original_count = beatmapset.beatmaps.len();
 
@@ -133,25 +130,53 @@ pub fn apply_filters<'a>(builder: &mut QueryBuilder<'a, Postgres>, filters: &'a 
             builder.push(" AND b.main_pattern @> ").push_bind(arr);
             if let Some(min) = skill.pattern_min.as_ref() {
                 match pattern_type.as_str() {
-                    "jumpstream" => { builder.push(" AND bmr.jumpstream >= ").push_bind(min); }
-                    "stream" => { builder.push(" AND bmr.stream >= ").push_bind(min); }
-                    "handstream" => { builder.push(" AND bmr.handstream >= ").push_bind(min); }
-                    "stamina" => { builder.push(" AND bmr.stamina >= ").push_bind(min); }
-                    "jackspeed" => { builder.push(" AND bmr.jackspeed >= ").push_bind(min); }
-                    "chordjack" => { builder.push(" AND bmr.chordjack >= ").push_bind(min); }
-                    "technical" => { builder.push(" AND bmr.technical >= ").push_bind(min); }
+                    "jumpstream" => {
+                        builder.push(" AND bmr.jumpstream >= ").push_bind(min);
+                    }
+                    "stream" => {
+                        builder.push(" AND bmr.stream >= ").push_bind(min);
+                    }
+                    "handstream" => {
+                        builder.push(" AND bmr.handstream >= ").push_bind(min);
+                    }
+                    "stamina" => {
+                        builder.push(" AND bmr.stamina >= ").push_bind(min);
+                    }
+                    "jackspeed" => {
+                        builder.push(" AND bmr.jackspeed >= ").push_bind(min);
+                    }
+                    "chordjack" => {
+                        builder.push(" AND bmr.chordjack >= ").push_bind(min);
+                    }
+                    "technical" => {
+                        builder.push(" AND bmr.technical >= ").push_bind(min);
+                    }
                     _ => {}
                 }
             }
             if let Some(max) = skill.pattern_max.as_ref() {
                 match pattern_type.as_str() {
-                    "jumpstream" => { builder.push(" AND bmr.jumpstream <= ").push_bind(max); }
-                    "stream" => { builder.push(" AND bmr.stream <= ").push_bind(max); }
-                    "handstream" => { builder.push(" AND bmr.handstream <= ").push_bind(max); }
-                    "stamina" => { builder.push(" AND bmr.stamina <= ").push_bind(max); }
-                    "jackspeed" => { builder.push(" AND bmr.jackspeed <= ").push_bind(max); }
-                    "chordjack" => { builder.push(" AND bmr.chordjack <= ").push_bind(max); }
-                    "technical" => { builder.push(" AND bmr.technical <= ").push_bind(max); }
+                    "jumpstream" => {
+                        builder.push(" AND bmr.jumpstream <= ").push_bind(max);
+                    }
+                    "stream" => {
+                        builder.push(" AND bmr.stream <= ").push_bind(max);
+                    }
+                    "handstream" => {
+                        builder.push(" AND bmr.handstream <= ").push_bind(max);
+                    }
+                    "stamina" => {
+                        builder.push(" AND bmr.stamina <= ").push_bind(max);
+                    }
+                    "jackspeed" => {
+                        builder.push(" AND bmr.jackspeed <= ").push_bind(max);
+                    }
+                    "chordjack" => {
+                        builder.push(" AND bmr.chordjack <= ").push_bind(max);
+                    }
+                    "technical" => {
+                        builder.push(" AND bmr.technical <= ").push_bind(max);
+                    }
                     _ => {}
                 }
             }
@@ -160,9 +185,11 @@ pub fn apply_filters<'a>(builder: &mut QueryBuilder<'a, Postgres>, filters: &'a 
 }
 
 /// Group rows by beatmapset - shared logic between find_all_with_filters and find_random_with_filters
-pub fn group_beatmapset_rows(rows: Vec<sqlx::postgres::PgRow>) -> Result<HashMap<i32, Beatmapset>, sqlx::Error> {
-    use sqlx::Row;
+pub fn group_beatmapset_rows(
+    rows: Vec<sqlx::postgres::PgRow>,
+) -> Result<HashMap<i32, Beatmapset>, sqlx::Error> {
     use serde_json::json;
+    use sqlx::Row;
 
     let mut beatmapsets: HashMap<i32, Beatmapset> = HashMap::new();
 
@@ -189,14 +216,16 @@ pub fn group_beatmapset_rows(rows: Vec<sqlx::postgres::PgRow>) -> Result<HashMap
             .any(|b| b.osu_id == beatmap_osu_id);
 
         if !beatmap_exists {
-            beatmapset.beatmaps.push(crate::models::beatmaps::short::types::Beatmap {
-                osu_id: beatmap_osu_id,
-                difficulty: row.try_get("difficulty").unwrap_or_default(),
-                mode: row.try_get("mode").unwrap_or(0),
-                status: row.try_get("status").unwrap_or_default(),
-                main_pattern: row.try_get("main_pattern").unwrap_or(json!({})),
-                ratings: Vec::new(),
-            });
+            beatmapset
+                .beatmaps
+                .push(crate::models::beatmaps::short::types::Beatmap {
+                    osu_id: beatmap_osu_id,
+                    difficulty: row.try_get("difficulty").unwrap_or_default(),
+                    mode: row.try_get("mode").unwrap_or(0),
+                    status: row.try_get("status").unwrap_or_default(),
+                    main_pattern: row.try_get("main_pattern").unwrap_or(json!({})),
+                    ratings: Vec::new(),
+                });
         }
 
         let beatmap = beatmapset
@@ -206,12 +235,16 @@ pub fn group_beatmapset_rows(rows: Vec<sqlx::postgres::PgRow>) -> Result<HashMap
             .unwrap();
 
         // Add rating
-        let rating_bd: BigDecimal = row.try_get("rating").unwrap_or_else(|_| BigDecimal::from(0));
+        let rating_bd: BigDecimal = row
+            .try_get("rating")
+            .unwrap_or_else(|_| BigDecimal::from(0));
         let rating_type: String = row.try_get("rating_type").unwrap_or_default();
-        beatmap.ratings.push(crate::models::beatmaps::short::types::Rating {
-            rating: rating_bd.to_f64().unwrap_or(0.0),
-            rating_type,
-        });
+        beatmap
+            .ratings
+            .push(crate::models::beatmaps::short::types::Rating {
+                rating: rating_bd.to_f64().unwrap_or(0.0),
+                rating_type,
+            });
     }
 
     Ok(beatmapsets)

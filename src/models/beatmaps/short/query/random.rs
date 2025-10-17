@@ -2,7 +2,9 @@ use crate::filters::Filters;
 use crate::models::beatmaps::short::types::Beatmapset;
 use sqlx::{PgPool, Postgres, QueryBuilder};
 
-use super::common::{preferred_rating_type, sort_and_limit_beatmaps, apply_filters, group_beatmapset_rows};
+use super::common::{
+    apply_filters, group_beatmapset_rows, preferred_rating_type, sort_and_limit_beatmaps,
+};
 
 /// Find random beatmapsets with filters - optimized for speed by using a single query with RANDOM()
 pub async fn find_random_with_filters(
@@ -20,10 +22,7 @@ pub async fn find_random_with_filters(
 
     ids_builder.push(") AS filtered_ids ORDER BY RANDOM() LIMIT 9");
 
-    let beatmapset_ids: Vec<i32> = ids_builder
-        .build_query_scalar()
-        .fetch_all(pool)
-        .await?;
+    let beatmapset_ids: Vec<i32> = ids_builder.build_query_scalar().fetch_all(pool).await?;
 
     if beatmapset_ids.is_empty() {
         return Ok(Vec::new());
@@ -38,7 +37,10 @@ pub async fn find_random_with_filters(
     apply_filters(&mut builder, &filters);
 
     // Constrain to selected beatmapsets
-    builder.push(" AND bs.id = ANY(").push_bind(&beatmapset_ids).push(")");
+    builder
+        .push(" AND bs.id = ANY(")
+        .push_bind(&beatmapset_ids)
+        .push(")");
     builder.push(" ORDER BY bs.id, b.id, br.id");
 
     let rows = builder.build().fetch_all(pool).await?;

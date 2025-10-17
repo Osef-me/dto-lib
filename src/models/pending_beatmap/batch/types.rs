@@ -6,7 +6,10 @@ use utoipa::ToSchema;
 /// A "checksum" refers to the beatmap file hash (e.g., MD5)
 /// used by osu! to identify a `.osu` file.
 #[derive(Deserialize, Debug, Clone, ToSchema)]
-#[schema(title = "BatchChecksumsRequest", description = "Import beatmaps using a list of osu! checksums")]
+#[schema(
+    title = "BatchChecksumsRequest",
+    description = "Import beatmaps using a list of osu! checksums"
+)]
 pub struct BatchChecksumsRequestDto {
     /// List of osu! checksums to enqueue for processing.
     ///
